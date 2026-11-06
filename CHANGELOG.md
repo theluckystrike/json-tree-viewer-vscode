@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 (2026-11-07)
+
+- The "More free viewers" list and the README list now show the 15 Zovo extensions on the Marketplace under their current names, and 12 that are coming soon.
+- Extensions for related files now come first, starting with JSONL Viewer & NDJSON Table Viewer and CSV Viewer, Excel Viewer & Parquet Viewer.
+
 ## 0.1.2 (2026-11-07)
 
 - The Marketplace name is now "Large JSON Viewer & JSON Tree", so a search for large JSON finds it. The extension ID, settings and commands stay the same.

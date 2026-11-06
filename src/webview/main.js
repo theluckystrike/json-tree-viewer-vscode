@@ -108,6 +108,9 @@ for (const b of [btnCopyPath, btnCopyJs, btnCopyVal, btnTable, btnNested]) b.dis
 const toast = el('div', 'toast');
 toast.hidden = true;
 app.append(toolbar, notice, main, detail, toast);
+// The host renders the Sponsor and More free viewers line (or leaves it out when the setting hides it).
+const supportLine = document.getElementById('zovo-support');
+if (supportLine) detail.append(supportLine);
 
 let toastTimer = null;
 function flash(text, error) {

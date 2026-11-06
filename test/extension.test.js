@@ -78,7 +78,7 @@ test('manifest: option priority, all file types, name, keywords, version', () =>
   assert.ok(pkg.displayName.length <= 45);
   assert.ok(pkg.displayName.toLowerCase().startsWith('json viewer'));
   assert.equal(pkg.publisher, 'zovo');
-  assert.equal(pkg.version, '0.1.0');
+  assert.equal(pkg.version, '0.1.1');
   assert.ok(pkg.keywords.length <= 30);
   assert.equal(new Set(pkg.keywords).size, pkg.keywords.length);
   assert.equal(pkg.engines.vscode, '^1.90.0');
@@ -170,4 +170,33 @@ test('extension: open selection, then clipboard, then a hint', async () => {
   await s3.commands['jsonTreeViewer.openSelection']();
   assert.equal(s3.panels.length, 0);
   assert.match(s3.info[0], /Select some JSON/);
+});
+
+// ---------- support links (Sponsor, More free viewers) ----------
+test('support: package.json has the sponsor field, the two commands and the setting', () => {
+  const support = require('../src/support');
+  assert.equal(pkg.sponsor.url, 'https://github.com/sponsors/theluckystrike');
+  assert.equal(pkg.sponsor.url, support.sponsorUrl());
+  const ids = pkg.contributes.commands.map(c => c.command);
+  assert.ok(ids.includes('jsonTreeViewer.supportDeveloper') && ids.includes('jsonTreeViewer.moreViewers'));
+  assert.equal(pkg.contributes.configuration.properties['jsonTreeViewer.showSupportLinks'].default, true);
+  assert.ok(support.otherProducts('zovo.zovo-json-tree-viewer').every(p => p.id !== 'zovo.zovo-json-tree-viewer'));
+  const state = newState();
+  const { ext } = load(state);
+  ext.activate(context());
+  assert.ok(state.commands['jsonTreeViewer.supportDeveloper'] && state.commands['jsonTreeViewer.moreViewers']);
+});
+
+test('support: the footer shows by default and jsonTreeViewer.showSupportLinks=false hides it', async () => {
+  for (const [config, shown] of [[{}, true], [{ showSupportLinks: false }, false]]) {
+    const state = newState({ config });
+    const { ext, vs } = load(state);
+    ext.activate(context());
+    const panel = makePanel(state);
+    await state.providers['jsonTreeViewer.viewer'].provider.resolveCustomEditor({ uri: vs.Uri.file(path.join(dir, 'a.json')) }, panel);
+    assert.equal(/id="zovo-support"/.test(panel.webview.html), shown, JSON.stringify(config));
+    assert.equal(panel.webview.html.includes('command:jsonTreeViewer.moreViewers'), shown);
+    assert.deepEqual(panel.webview.options.enableCommandUris, ['jsonTreeViewer.supportDeveloper', 'jsonTreeViewer.moreViewers', 'workbench.action.openSettings']);
+    panel.dispose();
+  }
 });

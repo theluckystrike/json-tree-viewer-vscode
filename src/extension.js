@@ -5,6 +5,7 @@ const { Worker } = require('worker_threads');
 const { buildHtml } = require('./html');
 const { createHost, limitBytes } = require('./core/host');
 const { createRatingPrompt } = require('./rate');
+const { registerSupport, commandUris, showLinks } = require('./support');
 
 const VIEW_TYPE = 'jsonTreeViewer.viewer';
 const SNIPPET_TYPE = 'jsonTreeViewer.snippet';
@@ -17,12 +18,14 @@ function settings() { return vscode.workspace.getConfiguration('jsonTreeViewer')
 function attach(context, panel, source, uri) {
   const dist = vscode.Uri.joinPath(context.extensionUri, 'dist');
   const media = vscode.Uri.joinPath(context.extensionUri, 'media');
-  panel.webview.options = { enableScripts: true, localResourceRoots: [dist, media] };
+  // Command links are limited to the two support commands and the settings page (footer "Hide" link).
+  panel.webview.options = { enableScripts: true, localResourceRoots: [dist, media], enableCommandUris: commandUris('jsonTreeViewer') };
   panel.webview.html = buildHtml({
     cspSource: panel.webview.cspSource,
     scriptUri: panel.webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.js')).toString(),
     styleUri: panel.webview.asWebviewUri(vscode.Uri.joinPath(media, 'webview.css')).toString(),
     title: source.name,
+    showSupportLinks: showLinks(vscode, 'jsonTreeViewer'),
   });
   const host = createHost({
     source,
@@ -82,6 +85,7 @@ async function openSelectionOrClipboard(context) {
 
 function activate(context) {
   rating = createRatingPrompt({ vscode, context, extensionId: EXT_ID, section: 'jsonTreeViewer', message: n => `JSON Viewer has opened ${n} files for you. A rating helps other people find it.` });
+  registerSupport({ vscode, context, prefix: 'jsonTreeViewer', selfId: EXT_ID });
   context.subscriptions.push(
     vscode.window.registerCustomEditorProvider(VIEW_TYPE, new JsonViewerProvider(context), {
       supportsMultipleEditorsPerDocument: true,

@@ -1,0 +1,223 @@
+{
+  "name": "zovo-json-tree-viewer",
+  "displayName": "JSON Viewer & JSON Tree",
+  "description": "JSON viewer with a fast JSON tree for large files: search keys and values, copy JSONPath, see arrays of objects as a table and open escaped JSON strings. Offline.",
+  "version": "0.1.0",
+  "publisher": "zovo",
+  "license": "MIT",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#1B2A3A",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.90.0",
+    "node": ">=18"
+  },
+  "categories": [
+    "Visualization",
+    "Data Science",
+    "Formatters",
+    "Other"
+  ],
+  "keywords": [
+    "json viewer",
+    "json tree",
+    "json",
+    "tree view",
+    "jsonpath",
+    "json path",
+    "large json",
+    "big json",
+    "json table",
+    "jsonc",
+    "json5",
+    "geojson",
+    "har",
+    "ipynb",
+    "webmanifest",
+    "escaped json",
+    "nested json",
+    "json explorer",
+    "json browser",
+    "viewer",
+    "preview",
+    "collapsible",
+    "search",
+    "copy path",
+    "api response",
+    "config",
+    "table",
+    "offline",
+    "read only",
+    "data"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "jsonTreeViewer.viewer",
+        "displayName": "JSON Viewer & JSON Tree",
+        "selector": [
+          {
+            "filenamePattern": "*.json"
+          },
+          {
+            "filenamePattern": "*.jsonc"
+          },
+          {
+            "filenamePattern": "*.json5"
+          },
+          {
+            "filenamePattern": "*.geojson"
+          },
+          {
+            "filenamePattern": "*.har"
+          },
+          {
+            "filenamePattern": "*.ipynb"
+          },
+          {
+            "filenamePattern": "*.webmanifest"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "jsonTreeViewer.open",
+        "title": "Open in JSON Viewer",
+        "category": "JSON Viewer",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "jsonTreeViewer.openSelection",
+        "title": "Open Selection or Clipboard in JSON Viewer",
+        "category": "JSON Viewer",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "jsonTreeViewer.getStarted",
+        "title": "Get Started",
+        "category": "JSON Viewer"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "jsonTreeViewer.open",
+          "when": "resourceExtname =~ /\\.(json|jsonc|json5|geojson|har|webmanifest)$/i && activeEditor == workbench.editors.files.textFileEditor",
+          "group": "navigation"
+        },
+        {
+          "command": "jsonTreeViewer.open",
+          "when": "resourceExtname == .ipynb && activeCustomEditorId != jsonTreeViewer.viewer",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "jsonTreeViewer.open",
+          "when": "resourceExtname =~ /\\.(json|jsonc|json5|geojson|har|ipynb|webmanifest)$/i",
+          "group": "navigation@21"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "jsonTreeViewer.openSelection",
+          "when": "editorHasSelection",
+          "group": "navigation@90"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "jsonTreeViewer.open",
+          "when": "resourceScheme == file || resourceScheme == untitled || resourceScheme == vscode-remote"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "JSON Viewer & JSON Tree",
+      "properties": {
+        "jsonTreeViewer.maxFileMB": {
+          "type": "number",
+          "default": 200,
+          "minimum": 1,
+          "maximum": 1024,
+          "description": "Largest file the viewer reads, in MB. Bigger files show a message and are not read. Parsing a JSON file takes several times its size in memory."
+        },
+        "jsonTreeViewer.askForRating": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask one time for a Marketplace rating after you have used JSON Viewer for a few days. You can answer \"Later\" or \"Don't ask again\". Nothing is sent anywhere."
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "jsonTreeViewer.start",
+        "title": "Get started with JSON Viewer & JSON Tree",
+        "description": "Open a JSON file as a tree, search it and copy paths.",
+        "steps": [
+          {
+            "id": "open",
+            "title": "Open a JSON file in the viewer",
+            "description": "Open any .json, .jsonc, .json5, .geojson, .har, .ipynb or .webmanifest file and click the tree button in the editor title. The normal text editor stays the default.\n[Find a .json file](command:workbench.action.quickOpen?%5B%22.json%22%5D)",
+            "media": {
+              "markdown": "walkthrough/open.md"
+            },
+            "completionEvents": [
+              "onCommand:jsonTreeViewer.open"
+            ]
+          },
+          {
+            "id": "search",
+            "title": "Search and copy paths",
+            "description": "Type in Search and press Enter for the next match. Click a node to see its JSONPath, then copy the path, the JS path or the value.",
+            "media": {
+              "markdown": "walkthrough/search.md"
+            }
+          },
+          {
+            "id": "table",
+            "title": "Tables and escaped JSON",
+            "description": "Arrays of objects get a Table button with sortable columns. Strings that hold escaped JSON get a JSON string button that opens them as a tree.",
+            "media": {
+              "markdown": "walkthrough/table.md"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node scripts/build.js --production",
+    "pretest": "node scripts/build.js",
+    "test": "node --test test/*.test.js",
+    "samples": "node scripts/make-samples.js",
+    "vscode:prepublish": "node scripts/build.js --production",
+    "package": "npx -y @vscode/vsce@3 package -o dist/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/theluckystrike/json-tree-viewer-vscode"
+  },
+  "homepage": "https://github.com/theluckystrike/json-tree-viewer-vscode#readme",
+  "bugs": {
+    "url": "https://github.com/theluckystrike/json-tree-viewer-vscode/issues"
+  },
+  "dependencies": {
+    "json5": "^2.2.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2"
+  }
+}

@@ -1,10 +1,10 @@
-# JSON Viewer & JSON Tree
+# Large JSON Viewer & JSON Tree
 
 <a href="https://marketplace.visualstudio.com/items?itemName=zovo.zovo-json-tree-viewer"><img src="https://img.shields.io/visual-studio-marketplace/i/zovo.zovo-json-tree-viewer?label=VS%20Code%20installs" alt="VS Code installs"></a>
 <a href="https://marketplace.visualstudio.com/items?itemName=zovo.zovo-json-tree-viewer"><img src="https://img.shields.io/visual-studio-marketplace/v/zovo.zovo-json-tree-viewer?label=version" alt="Version"></a>
 <img src="https://img.shields.io/badge/offline-no%20telemetry-2ea44f" alt="Offline, no telemetry">
 
-See any JSON file as a fast, searchable tree, copy the path of any value in one click, and turn arrays of objects into a sortable table.
+See any JSON file, large ones too, as a fast, searchable tree, copy the path of any value in one click, and turn arrays of objects into a sortable table.
 
 <img src="images/config-search.png" alt="A nested service config as a JSON tree expanded to level 3, with the four host keys found by search highlighted and the selected path $.server.port in the bottom bar" width="100%">
 

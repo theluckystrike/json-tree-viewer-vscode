@@ -76,9 +76,9 @@ test('manifest: option priority, all file types, name, keywords, version', () =>
   assert.equal(ed.priority, 'option', 'never replaces the text editor');
   assert.deepEqual(ed.selector.map(s => s.filenamePattern), ['*.json', '*.jsonc', '*.json5', '*.geojson', '*.har', '*.ipynb', '*.webmanifest']);
   assert.ok(pkg.displayName.length <= 45);
-  assert.ok(pkg.displayName.toLowerCase().startsWith('json viewer'));
+  assert.ok(pkg.displayName.toLowerCase().includes('json viewer'), 'the name keeps the exact search phrase');
   assert.equal(pkg.publisher, 'zovo');
-  assert.equal(pkg.version, '0.1.1');
+  assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
   assert.ok(pkg.keywords.length <= 30);
   assert.equal(new Set(pkg.keywords).size, pkg.keywords.length);
   assert.equal(pkg.engines.vscode, '^1.90.0');

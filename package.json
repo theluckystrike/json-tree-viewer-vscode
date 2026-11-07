@@ -1,8 +1,8 @@
 {
   "name": "zovo-json-tree-viewer",
-  "displayName": "Large JSON Viewer & JSON Tree",
+  "displayName": "Large JSON Viewer, JSON Browser & JSON Tree",
   "description": "Large JSON viewer with a fast JSON tree. Keeps 64-bit numbers exact, jumps to the line in the editor and reloads when the file changes. Search, copy JSONPath, table view. Offline.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "zovo",
   "license": "MIT",
   "icon": "icon.png",

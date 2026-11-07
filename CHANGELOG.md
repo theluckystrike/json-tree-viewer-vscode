@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 (2026-11-07)
+
+- The Marketplace name is now "Large JSON Viewer, JSON Browser & JSON Tree" (it was "Large JSON Viewer & JSON Tree"). The extension id, commands and settings stay the same.
+
 ## 0.2.0 (2026-11-07)
 
 - Exact big numbers: 64-bit IDs and other numbers too long for JavaScript show digit for digit instead of rounded. Copy value, search and the table use the exact digits, and a note says how many were kept.

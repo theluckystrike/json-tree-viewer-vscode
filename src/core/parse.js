@@ -2,6 +2,7 @@
 // Reads JSON, JSONC (comments, trailing commas) and JSON5 text. No vscode import, so tests run under plain node.
 
 const JSON5 = require('json5');
+const { maybeBig, canKeepExact, parseExact } = require('./bignum');
 
 const JSON5_MAX_CHARS = 50 * 1024 * 1024; // the JSON5 parser is slow; above this only JSON and JSONC are tried
 
@@ -117,6 +118,22 @@ function toParseError(e, text) {
  * mode: 'json' | 'jsonc' | 'json5'. Throws ParseError with line and column.
  */
 function parseText(text, ext) {
+  const r = parseLoose(text, ext);
+  r.big = 0;
+  // Second pass only when the text may hold a number JavaScript would round (64-bit IDs and the like).
+  if ((r.mode === 'json' || r.mode === 'jsonc') && maybeBig(text)) {
+    if (!canKeepExact()) r.bigUnsupported = true;
+    else {
+      try {
+        const x = parseExact(r.mode === 'jsonc' ? stripJsonc(text).text : text);
+        if (x.big) { r.value = x.value; r.big = x.big; }
+      } catch { /* keep the first result */ }
+    }
+  }
+  return r;
+}
+
+function parseLoose(text, ext) {
   if (!/\S/.test(text)) throw new ParseError('The file is empty.', 0, 0, '');
   const json5First = /^\.?json5$/i.test(ext || '');
   if (!json5First) {

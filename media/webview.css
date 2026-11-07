@@ -82,3 +82,4 @@ input:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px
 .dtype { opacity: .7; font-size: 12px; white-space: nowrap; }
 .toast { position: absolute; right: 16px; bottom: 50px; z-index: 10; padding: 6px 12px; border-radius: 3px; background: var(--vscode-notifications-background, var(--vscode-editorWidget-background)); color: var(--vscode-notifications-foreground, inherit); border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.4)); box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,.3)); font-size: 12px; max-width: 70vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .toast.err { border-color: var(--vscode-errorForeground, #f14c4c); }
+.val.big { text-decoration: underline dotted; text-underline-offset: 3px; }

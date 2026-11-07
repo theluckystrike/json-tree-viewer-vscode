@@ -37,10 +37,51 @@ function attach(context, panel, source, uri) {
     copy: text => vscode.env.clipboard.writeText(text),
     openAsText: () => (uri ? vscode.commands.executeCommand('vscode.openWith', uri, 'default') : openSnippetAsText(source.text)),
     rendered: () => rating.success(), // once per tab: the file parsed and its first rows were sent
+    reveal: ({ line, col }) => revealAt(uri, source, line, col),
   });
   panel.webview.onDidReceiveMessage(m => host.handle(m));
-  panel.onDidDispose(() => host.dispose());
+  const subs = uri ? watchFile(uri, panel, host) : [];
+  panel.onDidDispose(() => { host.dispose(); for (const d of subs) d.dispose(); });
   return host;
+}
+
+/** Opens the text editor beside the viewer with the cursor on the node (Go to line). */
+async function revealAt(uri, source, line, col) {
+  const pos = new vscode.Position(Math.max(0, line - 1), Math.max(0, col - 1));
+  const selection = new vscode.Range(pos, pos);
+  if (!uri) {
+    const td = await vscode.workspace.openTextDocument({ content: source.text || '', language: 'jsonc' });
+    await vscode.window.showTextDocument(td, { viewColumn: vscode.ViewColumn.Beside, selection });
+    return;
+  }
+  const ed = await vscode.window.showTextDocument(uri, { viewColumn: vscode.ViewColumn.Beside, selection, preview: true });
+  ed.revealRange(selection, vscode.TextEditorRevealType.InCenter);
+}
+
+/**
+ * Reloads the tree when the file changes on disk or is saved in VS Code (setting jsonTreeViewer.autoReload).
+ * Changes are collected for 300 ms. A hidden tab reloads when it is shown again.
+ */
+function watchFile(uri, panel, host) {
+  let timer = null;
+  let stale = false;
+  const fire = () => {
+    if (!settings().get('autoReload', true)) return;
+    if (!panel.visible) { stale = true; return; }
+    clearTimeout(timer);
+    timer = setTimeout(() => host.fileChanged(), 300);
+  };
+  const same = u => u && u.toString() === uri.toString();
+  const subs = [{ dispose: () => clearTimeout(timer) }];
+  try {
+    subs.push(vscode.workspace.onDidSaveTextDocument(d => { if (same(d.uri)) fire(); }));
+    subs.push(panel.onDidChangeViewState(() => { if (panel.visible && stale) { stale = false; fire(); } }));
+    const dir = vscode.Uri.joinPath(uri, '..');
+    const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(dir, path.posix.basename(uri.path)));
+    w.onDidChange(fire); w.onDidCreate(fire);
+    subs.push(w);
+  } catch { /* some virtual file systems cannot be watched; the view then shows the file as it was opened */ }
+  return subs;
 }
 
 /** The file in the active editor: a text editor, a notebook (.ipynb) or any tab with a uri. */

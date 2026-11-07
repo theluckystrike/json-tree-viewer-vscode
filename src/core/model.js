@@ -3,7 +3,8 @@
 // so a file with millions of values never builds millions of DOM nodes.
 // Nodes are made lazily, the first time their parent is opened.
 
-const { NESTED, jsonPath, jsPath } = require('./paths');
+const { NESTED, isNested, jsonPath, jsPath } = require('./paths');
+const { isBig } = require('./bignum');
 
 const MAX_ROWS = 1000000; // visible rows after "Expand all"; more is capped with a message
 const MAX_HITS = 10000;
@@ -12,13 +13,14 @@ const MAX_NESTED_CHARS = 10 * 1024 * 1024;
 const MAX_COPY_CHARS = 50 * 1024 * 1024;
 const STR_PREVIEW = 400;
 
-const isBox = v => v !== null && typeof v === 'object';
+const isBox = v => v !== null && typeof v === 'object' && !isBig(v);
 const isPlain = v => isBox(v) && !Array.isArray(v);
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
 function typeOf(v) {
   if (v === null) return 'null';
   if (Array.isArray(v)) return 'array';
+  if (isBig(v)) return 'number';
   const t = typeof v;
   return t === 'object' ? 'object' : t === 'number' ? 'number' : t === 'boolean' ? 'boolean' : t === 'string' ? 'string' : 'null';
 }
@@ -55,6 +57,7 @@ function sortKey(v) {
   if (v === undefined || v === null) return null;
   if (typeof v === 'number' || typeof v === 'string') return v;
   if (typeof v === 'boolean') return v ? 1 : 0;
+  if (isBig(v)) return Number(v.src);
   return preview(v, 60);
 }
 function compareKeys(a, b) {
@@ -193,6 +196,51 @@ class TreeModel {
     return rows.length;
   }
 
+  /** Paths (segment lists) of the open nodes in view, for keeping the tree as it was after a reload. */
+  openPaths(max = 20000) {
+    const out = [];
+    for (const n of this.rows) {
+      if (n.open && n.parent) { out.push(this.segsOf(n)); if (out.length >= max) break; }
+    }
+    return out;
+  }
+
+  /** Walks to segs, opening every node on the way (and escaped JSON strings). Returns the node, or null. */
+  openSegs(segs, openLast = true) {
+    let n = this.root;
+    if (this.expandable(n)) n.open = true;
+    for (const seg of segs) {
+      if (isNested(seg)) {
+        if (typeof n.value !== 'string') return null;
+        if (n.json === undefined) {
+          const p = nestedJson(n.value);
+          if (p === undefined) return null;
+          n.json = p; n.kids = null;
+        }
+        n.open = true;
+        continue;
+      }
+      if (!this.expandable(n)) return null;
+      n.open = true;
+      const kids = this.children(n);
+      const next = Array.isArray(this.inner(n)) ? kids[seg] : kids.find(k => k.key === seg);
+      if (!next) return null;
+      n = next;
+    }
+    if (openLast && this.expandable(n)) n.open = true;
+    return n;
+  }
+
+  /** Rebuilds the row list from the open flags. */
+  rebuildRows() {
+    const rows = [this.root];
+    this.capped = false;
+    if (this.root.open && this.expandable(this.root) && !this.collect(this.root, rows, this.maxRows)) this.capped = true;
+    this.rows = rows;
+    this.v++;
+    return rows.length;
+  }
+
   /** Opens a string that holds escaped JSON as a nested tree. */
   openNested(id, hint) {
     const n = this.node(id);
@@ -225,6 +273,7 @@ class TreeModel {
       if (t === 'array' && isTableArray(v)) r.tab = 1;
     } else {
       r.pv = scalarText(v);
+      if (isBig(v)) r.big = 1;
       if (t === 'string') {
         if (v.length > STR_PREVIEW) r.len = v.length;
         if (n.jsonOk === undefined) n.jsonOk = nestedJson(v) !== undefined;
@@ -378,7 +427,7 @@ class TreeModel {
         if (!isPlain(el) || !has(el, c.name)) return { t: 'missing' };
         const v = el[c.name];
         const ty = typeOf(v);
-        return { t: ty, s: isBox(v) ? preview(v, 80) : typeof v === 'string' ? (v.length > 300 ? v.slice(0, 300) + '…' : v) : String(v) };
+        return { t: ty, big: isBig(v) ? 1 : undefined, s: isBox(v) ? preview(v, 80) : typeof v === 'string' ? (v.length > 300 ? v.slice(0, 300) + '…' : v) : String(v) };
       });
       out.push({ i, cells });
     }
@@ -414,6 +463,7 @@ class TreeModel {
     const out = { jsonPath: jsonPath(x.segs), jsPath: jsPath(x.segs), t: v === undefined ? 'missing' : typeOf(v) };
     if (isBox(v)) out.n = count(v);
     if (typeof v === 'string') out.len = v.length;
+    if (isBig(v)) out.big = 1;
     if (x.node) {
       const n = x.node;
       out.id = n.id;

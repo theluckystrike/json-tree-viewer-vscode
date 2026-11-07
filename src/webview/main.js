@@ -100,10 +100,11 @@ const detailType = el('span', 'dtype');
 const btnCopyPath = btn('Copy JSONPath', 'Copy the JSONPath, for example $.items[3].id');
 const btnCopyJs = btn('Copy JS path', 'Copy the JavaScript path, for example data.items[3].id');
 const btnCopyVal = btn('Copy value', 'Copy the value (strings as plain text, the rest as JSON)');
+const btnGoLine = btn('Go to line', 'Open the text editor beside the viewer at this node (G)');
 const btnTable = btn('Show as table', 'Show this array of objects as a table', 'primary');
 const btnNested = btn('Open JSON string', 'Parse this string as JSON and show it as a tree', 'primary');
-detail.append(detailPath, detailType, el('span', 'spacer'), btnNested, btnTable, btnCopyPath, btnCopyJs, btnCopyVal);
-for (const b of [btnCopyPath, btnCopyJs, btnCopyVal, btnTable, btnNested]) b.disabled = true;
+detail.append(detailPath, detailType, el('span', 'spacer'), btnNested, btnTable, btnGoLine, btnCopyPath, btnCopyJs, btnCopyVal);
+for (const b of [btnCopyPath, btnCopyJs, btnCopyVal, btnTable, btnNested, btnGoLine]) b.disabled = true;
 
 const toast = el('div', 'toast');
 toast.hidden = true;
@@ -113,12 +114,12 @@ const supportLine = document.getElementById('zovo-support');
 if (supportLine) detail.append(supportLine);
 
 let toastTimer = null;
-function flash(text, error) {
+function flash(text, error, ms) {
   toast.textContent = text;
   toast.classList.toggle('err', !!error);
   toast.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.hidden = true; }, 1800);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, ms || 1800);
 }
 
 function showFatal(head, text, snippet, canOpen) {
@@ -177,7 +178,10 @@ function fillRow(r, pos, d) {
   r._count.textContent = box ? (d.t === 'array' ? `[${fmtN(d.n)}]` : `{${fmtN(d.n)}}`) : '';
   r._val.textContent = d.pv || '';
   r._val.className = 'val v-' + d.t + (box ? ' pv' : '');
-  if (d.len) r._val.title = `${fmtN(d.len)} characters (copy the value to get all of it)`; else r._val.removeAttribute('title');
+  if (d.len) r._val.title = `${fmtN(d.len)} characters (copy the value to get all of it)`;
+  else if (d.big) r._val.title = 'Exact: this number has more digits than JavaScript can hold, so it is shown as the file writes it';
+  else r._val.removeAttribute('title');
+  if (d.big) r._val.className += ' big';
   r._js.hidden = d.js !== 1;
   r._tab.hidden = !d.tab;
 }
@@ -370,7 +374,7 @@ let detailInfo = null;
 function setDetail(d) {
   detailInfo = d;
   const on = !!d;
-  for (const b of [btnCopyPath, btnCopyJs, btnCopyVal]) b.disabled = !on;
+  for (const b of [btnCopyPath, btnCopyJs, btnCopyVal, btnGoLine]) b.disabled = !on || (b === btnGoLine && !S.canLocate);
   btnTable.disabled = !(d && d.tab && d.id);
   btnTable.hidden = !(d && d.tab && d.id);
   btnNested.hidden = !(d && d.js === 1);
@@ -381,6 +385,7 @@ function setDetail(d) {
   const bits = [d.t];
   if (d.n !== undefined) bits.push(`${fmtN(d.n)} ${d.t === 'array' ? 'items' : 'keys'}`);
   if (d.len !== undefined) bits.push(`${fmtN(d.len)} chars`);
+  if (d.big) bits.push('exact');
   detailType.textContent = bits.join(' · ');
 }
 setDetail(null);
@@ -390,6 +395,11 @@ btnCopyVal.addEventListener('click', () => { if (detailInfo && S.sel) post({ typ
 btnTable.addEventListener('click', () => detailInfo && detailInfo.id && openTable(detailInfo.id));
 btnNested.addEventListener('click', () => { if (detailInfo && detailInfo.id) post({ type: 'nested', id: detailInfo.id, row: S.sel && S.sel.row || 0 }); });
 btnText.addEventListener('click', () => post({ type: 'openText' }));
+function goLine() { if (detailInfo && S.sel && S.canLocate) post({ type: 'locate', target: S.sel.cell ? { cell: S.sel.cell } : { id: S.sel.id } }); }
+btnGoLine.addEventListener('click', goLine);
+window.addEventListener('keydown', e => {
+  if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey && !(e.target && e.target.tagName === 'INPUT')) { e.preventDefault(); goLine(); }
+});
 
 // ---------- messages ----------
 function setLevelOn(level) { for (const b of levelBtns) b.classList.toggle('on', String(level) === b.dataset.level); }
@@ -411,9 +421,11 @@ window.addEventListener('message', ev => {
         } else showFatal('Could not open the file', m.message || 'Unknown error', '', true);
         return;
       }
+      const again = !!m.reloaded;
       S.ready = true;
       S.v = m.v; S.total = m.total; S.cache.clear(); S.pending.clear();
-      putRows(0, m.rows);
+      putRows(m.start || 0, m.rows);
+      S.canLocate = m.mode !== 'json5';
       S.rootTable = m.rootTable || 0;
       tabTable.disabled = !S.rootTable;
       fmtBadge.hidden = false;
@@ -421,8 +433,22 @@ window.addEventListener('message', ev => {
       const notes = m.notes && m.notes.length && m.mode !== 'json' ? ` (${m.notes.join(', ')})` : '';
       fmtBadge.title = notes ? `Read with ${notes.slice(2, -1)}` : 'Valid JSON';
       stats.textContent = `${fmtBytes(m.size)} · ${m.rootType === 'array' ? fmtN(m.rootCount) + ' items' : m.rootType === 'object' ? fmtN(m.rootCount) + ' keys' : m.rootType} · parsed in ${fmtMs(m.parseMs)}`;
-      if (notes) { notice.hidden = false; notice.textContent = `Read as ${m.mode.toUpperCase()}${notes}. The tree shows the data; comments are not part of it.`; }
+      const lines = [];
+      if (notes) lines.push(`Read as ${m.mode.toUpperCase()}${notes}. The tree shows the data; comments are not part of it.`);
+      if (m.big) lines.push(`${fmtN(m.big)} number${m.big === 1 ? ' is' : 's are'} too long for JavaScript (such as 64-bit IDs) and ${m.big === 1 ? 'is' : 'are'} shown exactly as the file writes ${m.big === 1 ? 'it' : 'them'}, not rounded.`);
+      if (m.bigUnsupported) lines.push('This file may hold numbers longer than JavaScript can keep exactly. Update VS Code to see them without rounding.');
+      notice.hidden = !lines.length;
+      notice.textContent = lines.join(' ');
       setLevelOn(m.level);
+      if (again) {
+        if (m.sel && m.sel.id) { S.sel = { row: m.sel.row, id: m.sel.id }; post({ type: 'select', target: { id: m.sel.id } }); }
+        else { S.sel = null; setDetail(null); }
+        if (m.top !== undefined) list.scrollTop = m.top * ROW_H;
+        if (S.mode === 'table') { if (m.tableId) openTable(m.tableId); else setMode('tree'); }
+        flash('File changed on disk. Reloaded.', false, 2500);
+        render();
+        break;
+      }
       S.sel = { row: 0, id: m.rows[0] && m.rows[0].id };
       if (S.sel.id) post({ type: 'select', target: { id: S.sel.id } });
       render();
@@ -490,8 +516,13 @@ window.addEventListener('message', ev => {
       break;
     }
     case 'toast':
-      flash(m.text, m.error);
+      flash(m.text, m.error, m.sticky ? 6000 : 0);
       break;
+    case 'fileChanged': {
+      const top = Math.floor(list.scrollTop / ROW_H);
+      post({ type: 'reload', sel: S.sel && S.sel.id ? { id: S.sel.id } : null, top });
+      break;
+    }
     case 'error':
       flash(m.message, true);
       break;

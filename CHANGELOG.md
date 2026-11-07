@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 (2026-11-07)
+
+- Exact big numbers: 64-bit IDs and other numbers too long for JavaScript show digit for digit instead of rounded. Copy value, search and the table use the exact digits, and a note says how many were kept.
+- Go to line: a button in the bottom bar (or the G key) opens the text editor beside the viewer with the cursor on the selected node or table cell.
+- Reload on change: the tree reads the file again when it changes on disk or is saved, and keeps open nodes, the selection, the scroll position, the search and the table. Broken JSON in the middle of a write keeps the last good version on screen. Setting: `jsonTreeViewer.autoReload`.
+
 ## 0.1.5 (2026-11-07)
 
 - "More free viewers" now starts with the Zovo extensions most related to this one. Picking one opens its Marketplace page, where you choose to install it.

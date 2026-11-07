@@ -34,6 +34,8 @@ function cleanMessage(m) {
   };
   switch (m.type) {
     case 'ready': case 'openText': return { type: m.type };
+    case 'locate': return { type: 'locate', target: target(m.target) };
+    case 'reload': return { type: 'reload', sel: m.sel && typeof m.sel === 'object' ? { id: num(m.sel.id) } : null, top: Math.max(0, num(m.top) | 0) };
     case 'rows': return { type: 'rows', start: num(m.start), count: num(m.count) };
     case 'toggle': return { type: 'toggle', id: num(m.id), row: num(m.row), open: typeof m.open === 'boolean' ? m.open : undefined };
     case 'level': return { type: 'level', level: m.level === 'all' ? 'all' : num(m.level) };
@@ -56,6 +58,7 @@ function cleanMessage(m) {
  *  readBytes(): Promise<Uint8Array>   for files that are not on the local disk
  *  spawnWorker(): Worker-like {postMessage, on, terminate}
  *  post(msg), copy(text), openAsText(), rendered()
+ *  reveal({line, col})                opens the text editor at that place (Go to line)
  */
 function createHost(o) {
   let worker = null;
@@ -69,6 +72,11 @@ function createHost(o) {
     if (m.type === 'clip') {
       if (m.text !== undefined) Promise.resolve(o.copy(m.text)).then(() => post({ type: 'toast', text: 'Copied value' }), () => {});
       else post({ type: 'toast', text: m.error || 'Nothing to copy', error: true });
+      return;
+    }
+    if (m.type === 'located') {
+      if (m.ok && o.reveal) Promise.resolve(o.reveal({ line: m.line, col: m.col })).then(() => post({ type: 'toast', text: `Line ${m.line.toLocaleString('en-US')}, column ${m.col}` }), e => post({ type: 'toast', text: `Could not open the editor: ${e && e.message || e}`, error: true }));
+      else post({ type: 'toast', text: m.message || 'Could not find this node in the file.', error: true });
       return;
     }
     if (m.type === 'init' && m.ok === false && m.kind === 'tooBig') m = { ...m, limit, message: tooBigMessage(m.size, limit) };
@@ -108,10 +116,27 @@ function createHost(o) {
     worker.postMessage(msg);
   }
 
+  /** Same file, new content: the worker parses it again and keeps the view. Without a worker it is a fresh load. */
+  async function reload(m) {
+    const src = o.source;
+    if (!worker || typeof src.text === 'string') return load();
+    let size = 0;
+    try { size = await o.statSize(); } catch { return; } // deleted or moved: keep what is on screen
+    if (disposed) return;
+    if (size > limit) { post({ type: 'toast', text: 'The file changed and is now over the size limit. Showing the last good version.', error: true, sticky: true }); return; }
+    const msg = { type: 'reload', ext: src.ext || '', limit, sel: m.sel, top: m.top };
+    if (src.path) msg.path = src.path;
+    else {
+      try { msg.bytes = await o.readBytes(); } catch { return; }
+    }
+    if (!disposed && worker) worker.postMessage(msg);
+  }
+
   function handle(raw) {
     const m = cleanMessage(raw);
     if (!m || disposed) return;
     if (m.type === 'ready') return load();
+    if (m.type === 'reload') return reload(m);
     if (m.type === 'openText') return o.openAsText && o.openAsText();
     if (m.type === 'copyText') {
       return Promise.resolve(o.copy(m.text)).then(() => post({ type: 'toast', text: m.what ? `Copied ${m.what}` : 'Copied' }), () => {});
@@ -124,7 +149,10 @@ function createHost(o) {
     if (worker) { worker.terminate(); worker = null; }
   }
 
-  return { handle, dispose, get worker() { return worker; } };
+  /** The file changed on disk. The webview answers with 'reload' and its selection, so the view stays put. */
+  function fileChanged() { if (!disposed && typeof o.source.text !== 'string') post({ type: 'fileChanged' }); }
+
+  return { handle, dispose, fileChanged, get worker() { return worker; } };
 }
 
 module.exports = { createHost, cleanMessage, tooBigMessage, limitBytes, fmtSize, DEFAULT_LIMIT_MB };

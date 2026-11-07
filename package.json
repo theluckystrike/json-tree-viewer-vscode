@@ -2,7 +2,7 @@
   "name": "zovo-json-tree-viewer",
   "displayName": "Large JSON Viewer & JSON Tree",
   "description": "Large JSON viewer with a fast JSON tree. Search keys and values, copy JSONPath, see arrays of objects as a table and open escaped JSON strings. Offline.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "zovo",
   "license": "MIT",
   "icon": "icon.png",
